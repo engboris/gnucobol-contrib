@@ -65,11 +65,6 @@ configuration section.
 repository. function all intrinsic.
 input-output section.
 file-control.
-*> =============================================
-*>  download and unzip a cities file from
-*>  http://download.geonames.org/export/dump/
-*>  into the $FILES directory
-*> =============================================
     select city-file
         assign to city-file-name
         file status is city-file-status
@@ -78,75 +73,67 @@ file-control.
 data division.
 file section.
 fd  city-file.
-01  city-record pic x(1000).
+copy "copy/city-record.cpy".
 
 working-storage section.
+01  city-file-name     pic x(64) value spaces.
+01  city-file-status   pic x(2).
+    88 success  value "00".
+    88 eof      value "10".
 
-01  command-file-name pic x(128) value 'worldcities0.sh'.
-01  techtonics.
-    03  pic x(128) value 'export FILES=$HOME/worldcityfiles'.
-    03  pic x(128) value
-        'cobc worldcities0.cbl -x -W -fdebugging-line'.
-    03  pic x(128) value './worldcities0 $FILES/CA.txt'.
-    03  pic x(128) value 'rm worldcities0'.
-    03  pic x(128) value 'end'.
-
-01  city-file-name pic x(64) value spaces.
-01  city-file-status pic x(2).
-
-01  input-count pic 9(7) value zero.
-01  city-count pic 9(7) value zero.
+01  input-count  pic 9(7) value zero.
+01  city-count   pic 9(7) value zero.
 
 01  city-columns.
-    03  geonameid pic 9(9).
-    03  name pic x(200).
-    03  asciiname pic x(200).
-    03  alternatenames pic x(5000).
-    03  latitude pic s9(3)v9(6).
-    03  longitude pic s9(3)v9(6).
-    03  featureclass pic x.
-    03  featurecode pic x(10).
-    03  countrycode pic x(2).
-    03  cc2 pic x(60).
-    03  admin1code pic x(60).
-    03  admin2code pic x(80).
-    03  admin3code pic x(20).
-    03  admin4code pic x(20).
-    03  population pic 9(9).
-    03  elevation pic 9(5).
-    03  dem pic 9(5).
-    03  timezone pic x(40).
+    03  geonameid        pic 9(9).
+    03  name             pic x(200).
+    03  asciiname        pic x(200).
+    03  alternatenames   pic x(5000).
+    03  latitude         pic s9(3)v9(6).
+    03  longitude        pic s9(3)v9(6).
+    03  featureclass     pic x.
+    03  featurecode      pic x(10).
+    03  countrycode      pic x(2).
+    03  cc2              pic x(60).
+    03  admin1code       pic x(60).
+    03  admin2code       pic x(80).
+    03  admin3code       pic x(20).
+    03  admin4code       pic x(20).
+    03  population       pic 9(9).
+    03  elevation        pic 9(5).
+    03  dem              pic 9(5).
+    03  timezone         pic x(40).
     03  modificationdate pic x(10).
 
 01  city-lengths.
-    03  name-length pic 9(3).
-    03  asciiname-length pic 9(3).
-    03  alternatenames-length pic 9(4).
-    03  cc2-length pic 9(2).
-    03  admin1code-length pic 9(2).
-    03  admin2code-length pic 9(2).
-    03  admin3code-length pic 9(2).
-    03  admin4code-length pic 9(2).
-    03  timezone-length pic 9(2).
+    03  name-length            pic 9(3).
+    03  asciiname-length       pic 9(3).
+    03  alternatenames-length  pic 9(4).
+    03  cc2-length             pic 9(2).
+    03  admin1code-length      pic 9(2).
+    03  admin2code-length      pic 9(2).
+    03  admin3code-length      pic 9(2).
+    03  admin4code-length      pic 9(2).
+    03  timezone-length        pic 9(2).
 
 01  current-time.
-    03  ct-hour pic 99.
-    03  ct-minute pic 99.
-    03  ct-second pic 99.
-    03  ct-hundredth pic 99.
+    03  ct-hour       pic 99.
+    03  ct-minute     pic 99.
+    03  ct-second     pic 99.
+    03  ct-hundredth  pic 99.
 
-01  start-seconds pic 9(7)v99.
-01  end-seconds pic 9(7)v99.
-01  elapsed-seconds pic 9(5)v99.
+01  start-seconds           pic 9(7)v99.
+01  end-seconds             pic 9(7)v99.
+01  elapsed-seconds         pic 9(5)v99.
 01  display-elapsed-seconds pic zz,zz9.99.
-01  display-count pic z,zzz,zz9.
+01  display-count           pic z,zzz,zz9.
 
-01  cdx pic 9999.
-01  bdx pic 999.
-01  byte-count pic 9.
-01  bytes-per-word pic 9 value 4.
-01  word-count pic 9.
-01  words-per-line pic 9 value 8.
+01  cdx             pic 9999.
+01  bdx             pic 999.
+01  byte-count      pic 9.
+01  bytes-per-word  pic 9 value 4.
+01  word-count      pic 9.
+01  words-per-line  pic 9 value 8.
 
 01  hex.
 
@@ -170,23 +157,30 @@ working-storage section.
     03  filler pic x(32) value 'E0E1E2E3E4E5E6E7E8E9EAEBECEDEEEF'.
     03  filler pic x(32) value 'F0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF'.
 
-01  newline pic x value x'0A'.
-01  tab pic x value x'09'.
+01  newline  pic x value x'0A'.
+01  tab      pic x value x'09'.
 
 procedure division chaining city-file-name.
+declaratives.
+    io-error section.
+        use after error procedure on city-file.
+    error-routine.
+        if not success and not eof 
+            display
+                'File error with file status '
+                with no advancing
+            end-display
+            display city-file-status end-display
+            stop run
+        end-if.
+end declaratives.
 start-worldcities0.
     display newline 'starting worldcities0' newline end-display
-
-    if city-file-name = 'techtonics'
-        call 'techtonics' using command-file-name techtonics end-call
-        stop run
-    end-if
 
     display 'reading ' city-file-name newline end-display
     display 'selecting featureclass P : city, village,...' end-display
 
     open input city-file
-    call 'checkfilestatus' using  city-file-name  city-file-status end-call
 
     accept current-time from time end-accept
     compute start-seconds =
@@ -197,9 +191,8 @@ start-worldcities0.
     end-compute
 
     read city-file end-read
-    call 'checkfilestatus' using  city-file-name  city-file-status end-call
 
-    perform until city-file-status = '10'
+    perform until eof
         add 1 to input-count end-add
 
         initialize city-columns
@@ -226,29 +219,31 @@ start-worldcities0.
         end-unstring
 
 *>         compile with -fdebugging-line to see some records and a HEX dump
-
 >>D        if  input-count > 1000 and < 1003
 >>D
->>D            display 'geonameid ' geonameid end-display
->>D            display 'name ' name(1:name-length) end-display
->>D            display 'asciiname ' asciiname(1:asciiname-length) end-display
->>D            display 'alternatenames ' alternatenames(1:alternatenames-length) end-display
->>D            display 'latitude ' latitude end-display
->>D            display 'longitude ' longitude end-display
->>D            display 'featureclass ' featureclass end-display
->>D            display 'featurecode ' featurecode end-display
->>D            display 'countrycode ' countrycode end-display
->>D            display 'cc2 ' cc2(1:cc2-length) end-display
->>D            display 'admin1code ' admin1code(1:admin1code-length) end-display
->>D            display 'admin2code ' admin2code(1:admin2code-length) end-display
->>D            display 'admin3code ' admin3code(1:admin3code-length) end-display
->>D            display 'admin4code ' admin4code(1:admin4code-length) end-display
->>D            display 'population ' population end-display
->>D            display 'elevation ' elevation end-display
->>D            display 'dem ' dem end-display
->>D            display 'timezone ' timezone(1:timezone-length) end-display
->>D            display 'modificationdate ' modificationdate end-display
+>>D            display '--------------------------------' end-display
+>>D            display 'RECORD OF geonameid=' geonameid end-display
+>>D            display '--------------------------------' end-display
+>>D            display 'name = ' name(1:name-length) end-display
+>>D            display 'asciiname = ' asciiname(1:asciiname-length) end-display
+>>D            display 'alternatenames = ' alternatenames(1:alternatenames-length) end-display
+>>D            display 'latitude = ' latitude end-display
+>>D            display 'longitude = ' longitude end-display
+>>D            display 'featureclass = ' featureclass end-display
+>>D            display 'featurecode = ' featurecode end-display
+>>D            display 'countrycode = ' countrycode end-display
+>>D            display 'cc2 = ' cc2(1:cc2-length) end-display
+>>D            display 'admin1code = ' admin1code(1:admin1code-length) end-display
+>>D            display 'admin2code = ' admin2code(1:admin2code-length) end-display
+>>D            display 'admin3code = ' admin3code(1:admin3code-length) end-display
+>>D            display 'admin4code = ' admin4code(1:admin4code-length) end-display
+>>D            display 'population = ' population end-display
+>>D            display 'elevation = ' elevation end-display
+>>D            display 'dem = ' dem end-display
+>>D            display 'timezone = ' timezone(1:timezone-length) end-display
+>>D            display 'modificationdate = ' modificationdate end-display
 >>D            display space end-display
+>>D            display 'HEX DUMP:' end-display
 >>D
 >>D            move 1 to byte-count
 >>D            move 1 to word-count
@@ -292,7 +287,9 @@ start-worldcities0.
         end-if
 
         read city-file end-read
-        call 'checkfilestatus' using  city-file-name  city-file-status end-call
+        *> if not success
+        *>    display city-file-status space with no advancing end-display
+        *> end-if
     end-perform
 
     accept current-time from time end-accept
@@ -324,101 +321,5 @@ start-worldcities0.
 
     stop run
     .
-
-identification division.
-program-id. checkfilestatus.
-
-data division.
-working-storage section.
-01  status-message pic x(72).
-01  display-message pic x(72) value spaces.
-
-linkage section.
-01  file-name pic x(64).
-01  file-status pic x(2).
-
-procedure division using file-name file-status.
-start-checkfilestatus.
-    if file-status = '00' or '10'
-        goback
-    end-if
-    evaluate file-status
-    when 00 move 'SUCCESS.' TO status-message   
-    when 02 move 'SUCCESS DUPLICATE.' TO status-message 
-    when 04 move 'SUCCESS INCOMPLETE.' TO status-message 
-    when 05 move 'SUCCESS OPTIONAL.' TO status-message 
-    when 07 move 'SUCCESS NO UNIT.' TO status-message 
-    when 10 move 'END OF FILE.' TO status-message 
-    when 14 move 'OUT OF KEY RANGE.' TO status-message 
-    when 21 move 'KEY INVALID.' TO status-message 
-    when 22 move 'KEY EXISTS.' TO status-message 
-    when 23 move 'KEY NOT EXISTS.' TO status-message 
-    when 30 move 'PERMANENT ERROR.' TO status-message 
-    when 31 move 'INCONSISTENT FILENAME.' TO status-message 
-    when 34 move 'BOUNDARY VIOLATION.' TO status-message 
-    when 35 move 'FILE NOT FOUND.' TO status-message 
-    when 37 move 'PERMISSION DENIED.' TO status-message 
-    when 38 move 'CLOSED WITH LOCK.' TO status-message 
-    when 39 move 'CONFLICT ATTRIBUTE.' TO status-message 
-    when 41 move 'ALREADY OPEN.' TO status-message 
-    when 42 move 'NOT OPEN.' TO status-message 
-    when 43 move 'READ NOT DONE.' TO status-message 
-    when 44 move 'RECORD OVERFLOW.' TO status-message 
-    when 46 move 'READ ERROR.' TO status-message 
-    when 47 move 'INPUT DENIED.' TO status-message 
-    when 48 move 'OUTPUT DENIED.' TO status-message 
-    when 49 move 'I/O DENIED.' TO status-message 
-    when 51 move 'RECORD LOCKED.' TO status-message 
-    when 52 move 'END-OF-PAGE.' TO status-message 
-    when 57 move 'I/O LINAGE.' TO status-message 
-    when 61 move 'FILE SHARING FAILURE.' TO status-message 
-    when 91 move 'FILE NOT AVAILABLE.' TO status-message    
-    end-evaluate
-    string 'ERROR ' delimited by size
-        file-name delimited by space
-        space delimited by size
-        status-message delimited by '.'
-        into display-message
-    end-string
-    display display-message end-display
-    stop run
-    .
-end program checkfilestatus.
-
-identification division.
-program-id. techtonics.
-environment division.
-input-output section.
-file-control.
-    select command-file
-        assign to command-file-name
-        organization is line sequential.
-data division.
-file section.
-fd  command-file.
-01  command-record pic x(128).
-working-storage section.
-01  tcx pic 99.
-linkage section.
-01  command-file-name pic x(128).
-01  techtonics.
-    03  techtonics-line pic x(128) occurs 30.
-procedure division using command-file-name techtonics.
-start-techtonics.
-    display 'creating command-file '
-        command-file-name end-display
-    open output command-file
-    perform varying tcx from 1 by 1
-    until tcx > 30
-    or techtonics-line(tcx) = 'end'
-        write command-record
-            from techtonics-line(tcx) end-write
-    end-perform
-    close command-file
-    display space end-display
-    goback
-    .
-end program techtonics.
-
 end program worldcities0.
 
